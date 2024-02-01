@@ -1,4 +1,3 @@
-import 'package:flutter/material.dart';
 
 class TexEnvironment {
   final List<TexEnvironment> environments = <TexEnvironment>[];
@@ -7,7 +6,7 @@ class TexEnvironment {
   String end;
   TexEnvironment(this.text, {this.start = "{", this.end = "}"}) {
     String? start;
-    int start_pos;
+    int startPos;
     String? envText;
     String end;
     for (int i = 0; i < text.length; i++) {

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 class DefaultDrawer extends StatefulWidget {
+  const DefaultDrawer({super.key});
+
   @override
   State<StatefulWidget> createState() {
     return DefaultDrawerState_();
@@ -17,7 +19,7 @@ class DefaultDrawerState_ extends State<DefaultDrawer> {
         DrawerHeader(
             decoration: BoxDecoration(
                 color: Theme.of(context).colorScheme.inversePrimary),
-            child: Container(
+            child: SizedBox(
               height: 100,
               child: Text("Song Viewer",
                   style: Theme.of(context).textTheme.headlineLarge),
@@ -25,8 +27,8 @@ class DefaultDrawerState_ extends State<DefaultDrawer> {
         SingleChildScrollView(
           child: Column(children: [
             ListTile(
-              leading: Icon(Icons.music_note),
-              title: Text("Songs"),
+              leading: const Icon(Icons.music_note),
+              title: const Text("Songs"),
               onTap: () {
                 while (Navigator.canPop(context)) {
                   Navigator.pop(context);
@@ -35,8 +37,8 @@ class DefaultDrawerState_ extends State<DefaultDrawer> {
               },
             ),
             ListTile(
-              leading: Icon(Icons.file_copy),
-              title: Text("Files"),
+              leading: const Icon(Icons.file_copy),
+              title: const Text("Files"),
               onTap: () {
                 while (Navigator.canPop(context)) {
                   Navigator.pop(context);

@@ -89,7 +89,11 @@ class Song extends Model {
       song.chordsheets.add(chordsheet);
       chordsheet.songs.add(song);
       chordsheet.file = file;
-      song.name = match.group(1);
+      List<String> name = match.group(1)!.split('\\\\');
+      for (int i = 1; i < name.length; i++) {
+        name[i] = '(${name[i]})';
+      }
+      song.name = name.join(' ');
       if (match.group(2) != null) {
         Map<String, dynamic> attrs = PARSE_ATTRS(match.group(2)!);
         if (attrs.containsKey('by')) {
@@ -138,9 +142,14 @@ class Song extends Model {
 }
 
 class PartType extends Model {
+  static List<Color> colors = <Color>[];
+  static Map<RegExp, PartType> Types = {
+    RegExp(r'Chorus\s*(\w*)'): PartType(name: "Chorus %s"),
+  };
   String? name;
   Map<String, String> localnames = <String, String>{};
   Color? color;
+  PartType({required this.name, this.color});
 }
 
 class Part extends Model {
@@ -149,7 +158,9 @@ class Part extends Model {
   PartType? partType;
   String? title;
   String? lyrics;
-  Color? color;
+  Color? localColor;
+  Color? get color =>
+      localColor ?? ((partType == null) ? null : partType!.color);
   List<Language> languages = [];
 }
 
@@ -160,10 +171,12 @@ class Chordsheet extends Model {
   String notes = "";
   Map<String, dynamic> attributes = <String, dynamic>{};
   List<ChordsheetPart> parts = <ChordsheetPart>[];
+  void parse_tex() {}
 }
 
 class ChordsheetPart extends Model {
   int? index;
+
   Part? part;
   Chordsheet? chordsheet;
   String? content;

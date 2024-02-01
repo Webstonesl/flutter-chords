@@ -21,7 +21,7 @@ class MyApp extends StatelessWidget {
       routes: {
         '/': (context) => const MyHomePage(title: 'Song Viewer'),
         '/songs': (context) => SongsPage(),
-        '/songs/editor': (context) => SongEditorPage()
+        '/songs/editor': (context) => const SongEditorPage()
       },
     );
   }
