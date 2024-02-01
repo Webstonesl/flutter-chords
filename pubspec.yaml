@@ -41,6 +41,7 @@ dependencies:
   sqflite:
   http: ^1.2.0
   file_picker: ^6.1.1
+  sprintf: ^7.0.0
 
 dev_dependencies:
   flutter_test:

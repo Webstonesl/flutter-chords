@@ -125,11 +125,13 @@ class Song extends Model {
         }
 
         part.lyrics = cleanLyrics(contents2);
-        if (part.lyrics != null) if (part.lyrics != "") {
-          part.song = song;
-          groups.last['chordsheet'] = chordsheet;
-          groups.last['part'] = part;
-          song.parts.add(part);
+        if (part.lyrics != null) {
+          if (part.lyrics != "") {
+            part.song = song;
+            groups.last['chordsheet'] = chordsheet;
+            groups.last['part'] = part;
+            song.parts.add(part);
+          }
         }
       }
 
@@ -159,6 +161,7 @@ class Part extends Model {
   String? title;
   String? lyrics;
   Color? localColor;
+  Part({this.song});
   Color? get color =>
       localColor ?? ((partType == null) ? null : partType!.color);
   List<Language> languages = [];
@@ -181,6 +184,7 @@ class ChordsheetPart extends Model {
   Chordsheet? chordsheet;
   String? content;
   String notes = "";
+  ChordsheetPart({required this.chordsheet});
 }
 
 class File extends Model {
