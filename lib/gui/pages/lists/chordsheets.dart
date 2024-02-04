@@ -76,10 +76,12 @@ class _ChordsheetListViewState extends State<ChordsheetListView> {
                     if (value.files[0].extension!.toLowerCase() == 'tex') {
                       List<Chordsheet> sheets = parseTexChordsheets(
                           const Utf8Decoder().convert(value.files[0].bytes!));
-
-                      setState(() {
-                        _database!.insert(sheets);
-                      });
+                      for (Chordsheet sheet in sheets) {
+                        print(sheet.save(_database!));
+                      }
+                      // setState(() {
+                      //   _database!.insert(sheets);
+                      // });
                       if (sheets.length == 1) {
                         Navigator.push(
                             context,
@@ -98,7 +100,7 @@ class _ChordsheetListViewState extends State<ChordsheetListView> {
           future: database,
           builder: (context, snapshot) {
             if (!snapshot.hasData) {
-              return CircularProgressIndicator();
+              return const CircularProgressIndicator();
             }
             return FutureBuilder(
                 future: chordsheets,

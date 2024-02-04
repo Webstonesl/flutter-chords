@@ -1,9 +1,9 @@
-
 abstract class MusicalElement {
   const MusicalElement();
+  dynamic getData();
 }
 
-class Key {
+class Key extends MusicalElement {
   final int _value;
   int get value {
     int n = _value;
@@ -87,6 +87,11 @@ class Key {
       return [_keycodes[v]!, state.accidentalStrings[accidental]!].join('');
     }
   }
+
+  @override
+  getData() {
+    return value;
+  }
 }
 
 class Rhythm extends MusicalElement {
@@ -95,11 +100,16 @@ class Rhythm extends MusicalElement {
   final int? lower;
 
   Rhythm({required this.bpm, required this.upper, required this.lower});
+
+  @override
+  getData() {
+    return {'bpm': bpm, 'upper': upper, 'lower': lower};
+  }
 }
 
 enum ChordType { major, minor, dim, sus, add2, add4 }
 
-class Chord {
+class Chord extends MusicalElement {
   final Key key;
   final Key? _bass;
   final Set<ChordType> types;
@@ -127,6 +137,15 @@ class Chord {
   String render(State s) {
     return [key.render(s), mod, if (_bass != null) "/${_bass.render(s)}"]
         .join('');
+  }
+
+  @override
+  getData() {
+    return {
+      'key': key.getData(),
+      'bass': _bass == null ? null : bass.getData(),
+      'mod': mod
+    };
   }
 }
 
@@ -171,6 +190,11 @@ class Scale extends MusicalElement {
         rhythm: Rhythm(bpm: null, upper: null, lower: null),
         scale: this));
   }
+
+  @override
+  getData() {
+    return {'key': key.getData(), 'type': type.index};
+  }
 }
 
 enum RepeatType { start, end, number }
@@ -181,6 +205,12 @@ class Repeat extends MusicalElement {
   final Repeat? start;
   Repeat? end;
   Repeat({required this.type, this.start, this.number});
+
+  @override
+  getData() {
+    // TODO: implement getData
+    throw UnimplementedError();
+  }
 }
 
 class RepeatState {
@@ -202,6 +232,11 @@ class Transpose extends MusicalElement {
   final int n;
 
   const Transpose(this.n);
+
+  @override
+  getData() {
+    return n;
+  }
 }
 
 enum Accidental {
@@ -240,4 +275,10 @@ class State {
     }
     throw UnimplementedError("Not yet implemented");
   }
+
+  Map<String, dynamic> get data => {
+        'scale': scale.getData(),
+        'rhythm': rhythm.getData(),
+        'transpose': transpose.getData(),
+      };
 }

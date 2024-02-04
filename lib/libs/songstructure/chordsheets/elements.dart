@@ -1,15 +1,13 @@
-import 'package:song_viewer/libs/database.dart';
 import 'package:song_viewer/libs/songstructure/chordsheets/chordsheet.dart';
 
 import 'package:song_viewer/libs/songstructure/musictheory.dart';
 import 'package:song_viewer/libs/songstructure/texutils.dart';
 
-abstract class ItemElement extends Model {
+abstract class ItemElement {
   dynamic render(State s);
-  @override
-  String getTableName() {
-    return "items";
-  }
+  dynamic getData();
+  Map<String, dynamic> get data =>
+      {'itemtype': runtimeType.toString(), 'data': getData()};
 }
 
 class ItemChord extends ItemElement {
@@ -79,9 +77,17 @@ class ItemChord extends ItemElement {
   }
 
   @override
-  Map<String, dynamic> _getData() {
-    // TODO: implement getData
-    throw UnimplementedError();
+  getData() {
+    return {
+      'chord': chord == null
+          ? null
+          : {
+              'key': chord!.key.value,
+              'bass': chord!.bass == chord!.key ? null : chord!.bass.value,
+              'mod': chord!.mod,
+            },
+      'text': chord == null ? input : null
+    };
   }
 }
 
@@ -94,8 +100,8 @@ class ItemMeasure extends ItemElement {
   }
 
   @override
-  Map<String, dynamic> _getData() {
-    // TODO: implement getData
+  getData() {
+    // TODO: implement toJSON
     throw UnimplementedError();
   }
 }
@@ -110,9 +116,8 @@ class ItemLyric extends ItemElement {
   }
 
   @override
-  Map<String, dynamic> _getData() {
-    // TODO: implement getData
-    throw UnimplementedError();
+  getData() {
+    return lyrics;
   }
 }
 
@@ -136,39 +141,18 @@ class ItemRepeat extends ItemElement {
   }
 
   @override
-  Map<String, dynamic> _getData() {
-    // TODO: implement getData
+  getData() {
     throw UnimplementedError();
   }
 }
 
 class ItemLineBreak extends ItemElement {
   @override
-  render(State s) {
-    // TODO: implement render
-    throw UnimplementedError();
-  }
+  render(State s) {}
 
   @override
-  Map<String, dynamic> _getData() {
-    // TODO: implement getData
-    throw UnimplementedError();
-  }
-}
-
-class ItemGroup extends ItemElement {
-  List<ItemElement> items = [];
-
-  @override
-  render(State s) {
-    // TODO: implement render
-    throw UnimplementedError();
-  }
-
-  @override
-  Map<String, dynamic> _getData() {
-    // TODO: implement getData
-    throw UnimplementedError();
+  getData() {
+    return null;
   }
 }
 
@@ -212,9 +196,11 @@ class ChordsheetPart extends ChordsheetElement {
   }
 
   @override
-  Map<String, dynamic> _getData() {
-    // TODO: implement getData
-    throw UnimplementedError();
+  Map<String, dynamic> getData() {
+    return {
+      'title': title,
+      'elements': [for (ItemElement element in elements) element.data]
+    };
   }
 
   @override
@@ -241,8 +227,12 @@ class ChordsheetRepeat extends ChordsheetElement {
   }
 
   @override
-  Map<String, dynamic> _getData() {
-    throw UnimplementedError();
+  Map<String, dynamic> getData() {
+    return {
+      'title': s,
+      'n': n,
+      'part': part,
+    };
   }
 
   @override
@@ -265,8 +255,8 @@ class ChordsheetTranspose extends ChordsheetElement {
   }
 
   @override
-  Map<String, dynamic> _getData() {
-    throw UnimplementedError();
+  Map<String, dynamic> getData() {
+    return {'transpose': transpose.getData()};
   }
 
   @override

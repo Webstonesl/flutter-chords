@@ -1,7 +1,6 @@
 import 'package:song_viewer/libs/database.dart';
 import 'package:song_viewer/libs/songstructure/chordsheets/elements.dart';
 
-import 'package:uuid/uuid.dart';
 
 import '../musictheory.dart';
 import '../texutils.dart';
@@ -64,9 +63,13 @@ class Chordsheet extends Model {
   }
 
   @override
-  Map<String, dynamic> _getData() {
-    // TODO: implement getData
-    throw UnimplementedError();
+  Map<String, dynamic> getData() {
+    Map<String, dynamic> map = {};
+    map["title"] = title;
+    map["start"] = initialState!.data;
+    map["attrs"] = attributes;
+    map["elements"] = elements;
+    return map;
   }
 }
 
@@ -113,7 +116,7 @@ Chordsheet parseTexChordsheet(RegExpMatch match) {
   ].join(" ");
   String? attrs = match.group(2);
   if (attrs != null) {
-    sheet.attributes = parseTexAttrs(cleanTex(attrs!));
+    sheet.attributes = parseTexAttrs(cleanTex(attrs));
   }
   String content = match.group(3) ?? "";
   content = cleanTex(content);
@@ -123,7 +126,7 @@ Chordsheet parseTexChordsheet(RegExpMatch match) {
 
 Map<String, dynamic> parseTexAttrs(String tex) {
   Map<String, dynamic> attrs = {};
-  Map<RegExp, List<dynamic> Function(Match)> attr_help = {
+  Map<RegExp, List<dynamic> Function(Match)> attrHelp = {
     // RegExp(r"\s\s+"): (p0) => [],
     RegExp(r"(\w+)\s*=\s*"): (p0) => [p0.group(1)!],
     RegExp(r"\d+"): (p0) => [int.parse(p0.group(0)!)],
@@ -131,7 +134,7 @@ Map<String, dynamic> parseTexAttrs(String tex) {
     RegExp(r"([^,]+)\s*"): (p0) => [p0.group(1)],
     RegExp(r",\s*"): (p0) => [],
   };
-  List<dynamic> items = Scanner(tex, attr_help).list;
+  List<dynamic> items = Scanner(tex, attrHelp).list;
   for (int i = 0; i + 1 < items.length; i += 2) {
     attrs[items[i] as String] = items[i + 1];
   }
