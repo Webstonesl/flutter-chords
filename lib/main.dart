@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:song_viewer/libs/database.dart';
 
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
@@ -12,6 +13,6 @@ Future<void> main() async {
   }
 
   databaseFactory = databaseFactoryFfi;
-
+  print(await MyDatabase.getDatabase(path: "./chordsheets.sqlite3"));
   runApp(const MyApp());
 }

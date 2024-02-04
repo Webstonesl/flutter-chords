@@ -1,59 +1,79 @@
-import 'dart:io';
+import 'dart:ui';
 
+import 'package:song_viewer/libs/songstructure/chordsheets/chordsheet.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
+import 'package:uuid/uuid.dart';
 
-enum DBSource { DBLocal, DBServer, DBNone }
-
-class DB {
-  String server_url = "http://127.0.0.1:8000";
-  static DB? db;
-
-  final Database database;
-  DB(this.database);
-  get() async {}
-  static Future<DB> getDB() async {
-    if (DB.db != null) {
-      if (!DB.db!.database.isOpen) {
-        return DB.db!;
-      }
+abstract class Model {
+  static Set<Uuid> UUIDS = {};
+  Uuid? _uuid;
+  Uuid? get uuid => _uuid;
+  set uuid(Uuid? uuid) {
+    if (uuid == null) return;
+    if (UUIDS.contains(uuid)) {
+      throw Exception("Duplicate UUIDS");
     }
-    bool ex = await databaseFactory.databaseExists('songs.db');
-    Database db = await databaseFactory.openDatabase('songs.db');
-    if (!ex) {
-      await db.rawQuery(r'''CREATE TABLE "tblfiles" (
-          "fileid"	TEXT,
-          "filename"	TEXT NOT NULL,
-          "data"	BLOB NOT NULL,
-          "filetype" TEXT NOT NULL,
-          "update_date"	TEXT,
-          "grabbed" INTEGER,
-          PRIMARY KEY("fileid"),
-          "saved" 
-        );''');
-      await db.rawQuery(r'''CREATE TABLE "tblsongs" (
-        "songid"	TEXT,
-        "title"	TEXT NOT NULL,
-        "attrs"	TEXT,
-        "fileid"	TEXT NOT NULL,
-        "grabbed" INTEGER,
-        PRIMARY KEY("songid"),
-        FOREIGN KEY("fileid") REFERENCES "tblfiles"("fileid") ON UPDATE CASCADE
-      );''');
-      await db.rawQuery(r'''CREATE TABLE "tblparts" (
-        "songid"	TEXT,
-        "partid"	INTEGER,
-        "title"	TEXT,
-        "ptype"	TEXT,
-        "lyrics"	TEXT,
-        "content"	TEXT NOT NULL,
-        "grabbed" INTEGER,
-        PRIMARY KEY("songid","partid"),
-        FOREIGN KEY("songid") REFERENCES "tblsongs"("songid")
-      );''');
-    }
-    HttpClient client = HttpClient();
-    DB w = DB(db);
-    await w.get();
-    return w;
   }
+
+  Map<String, dynamic> get data {
+    Map<String, dynamic> d = _getData();
+    d["datatype"] = runtimeType.toString();
+    d["uuid"] = uuid.toString();
+    return d;
+  }
+
+  Map<String, dynamic> _getData();
+  bool save() {
+    return false;
+  }
+
+  bool delete() {
+    return false;
+  }
+}
+
+class MyDatabase {
+  static MyDatabase? _database;
+  late Database db;
+  MyDatabase() {}
+
+  Map<Uuid, Model> _map = <Uuid, Model>{};
+  Future<Model?> getModel(Uuid uuid) async {
+    List<Map<String, dynamic>> l = await db
+        .query("items", where: "uuid = ?", whereArgs: [uuid.toString()]);
+    for (Map<String, dynamic> entry in l) {
+      print(entry["datatype"]);
+      for (String key in entry.keys) {}
+    }
+  }
+
+  Future<List<Chordsheet>> getChordsheets() async {
+    return [];
+  }
+
+  static Future<MyDatabase> getDatabase({required String path}) async {
+    if (_database != null) {
+      return _database!;
+    }
+    MyDatabase database = MyDatabase();
+
+    database.db = await databaseFactory.openDatabase(path,
+        options: OpenDatabaseOptions(
+          version: 1,
+          onCreate: (db, version) {
+            db.execute('''
+              CREATE TABLE items (
+                uuid TEXT,
+                data TEXT,
+                PRIMARY KEY(uuid)
+              );
+              ''');
+          },
+        ));
+    _database = database;
+
+    return _database!;
+  }
+
+  void insert(List<Chordsheet> sheets) {}
 }
