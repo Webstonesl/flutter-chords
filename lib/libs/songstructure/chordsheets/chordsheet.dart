@@ -1,6 +1,10 @@
+import 'dart:typed_data';
+
+import 'package:flutter/material.dart' as mat;
+import 'package:pdf/pdf.dart';
+import 'package:pdf/widgets.dart' as pw;
 import 'package:song_viewer/libs/database.dart';
 import 'package:song_viewer/libs/songstructure/chordsheets/elements.dart';
-
 
 import '../musictheory.dart';
 import '../texutils.dart';
@@ -12,6 +16,11 @@ class Chordsheet extends Model {
   State? get initialState => _initialState ?? getState();
   set initialState(State? state) {
     _initialState = state;
+  }
+
+  State? get state => currentState ?? initialState;
+  set state(State? state) {
+    currentState = state;
   }
 
   State? currentState;
@@ -71,6 +80,107 @@ class Chordsheet extends Model {
     map["elements"] = elements;
     return map;
   }
+
+  static pw.TextStyle partTitleFont = pw.TextStyle(
+      fontWeight: pw.FontWeight.bold,
+      fontSize: 16,
+      fontBold: pw.Font.timesBold());
+  static pw.TextStyle chordsheetTitleFont = const pw.TextStyle();
+  static pw.TextStyle lyricFont = const pw.TextStyle();
+  pw.Widget _part(State state, ChordsheetPart element) {
+    List<pw.Wrap> rows = [];
+    List<List<ItemElement>> lines = [[]];
+    for (ItemElement item in element.elements) {
+      lines.last.add(item);
+      if (item is ItemLineBreak) {
+        lines.add([]);
+      }
+    }
+
+    for (List<ItemElement> line in lines) {
+      List<pw.Widget> wrap = [];
+      List<pw.Widget> column = [];
+
+      for (int i = 0; i < line.length; i++) {
+        void moveOver() {
+          if (column.isEmpty) {
+            return;
+          }
+          wrap.add(pw.Column(
+              children: column,
+              mainAxisAlignment: pw.MainAxisAlignment.end,
+              crossAxisAlignment: pw.CrossAxisAlignment.start));
+
+          column = [];
+        }
+
+        ItemElement el = line[i];
+        if (el is ItemLineBreak) {
+          moveOver();
+        } else if (el is ItemLyric) {
+          if (i > 0) {
+            if (line[i - 1] is ItemLyric) {
+              moveOver();
+            }
+          }
+
+          column.add(pw.Text(el.lyrics, style: lyricFont));
+        } else {
+          moveOver();
+          if (el is ItemChord) {
+            column.add(pw.Text(el.render(state)));
+          }
+        }
+      }
+
+      rows.add(pw.Wrap(
+          children: wrap, crossAxisAlignment: pw.WrapCrossAlignment.end));
+    }
+    return pw.Column(
+        mainAxisAlignment: pw.MainAxisAlignment.start,
+        crossAxisAlignment: pw.CrossAxisAlignment.start,
+        children: [
+          pw.Text(element.title ?? "", style: partTitleFont),
+          for (pw.Wrap wrap in rows) wrap
+        ]);
+  }
+
+  pw.Widget _element(State state, ChordsheetElement element) {
+    if (element is ChordsheetPart) {
+      return _part(state, element);
+    } else if (element is ChordsheetRepeat) {
+      return pw.Text("Repeat ${element.title}", style: partTitleFont);
+    }
+    return pw.Text(element.runtimeType.toString(),
+        style: pw.TextStyle(
+            fontItalic: pw.Font.timesItalic(), fontStyle: pw.FontStyle.italic));
+  }
+
+  Future<Uint8List> toPDF([State? initialState]) async {
+    initialState ??= this.initialState;
+    State state = initialState!;
+    List<pw.Widget> widgets = [];
+    for (ChordsheetElement element in elements) {
+      widgets.add(_element(state, element));
+      state = element.applyTo(state);
+    }
+    pw.Document document = pw.Document(title: title, creator: "Webstones");
+    document.addPage(pw.MultiPage(
+      pageFormat: PdfPageFormat.a4,
+      build: (context) {
+        return [
+          pw.Text(title,
+              style: pw.TextStyle(
+                font: pw.Font.timesBold(),
+                fontSize: 18,
+              )),
+          for (pw.Widget widget in widgets) widget
+        ];
+      },
+    ));
+
+    return await document.save();
+  }
 }
 
 class Scanner<T> {
@@ -103,6 +213,7 @@ Map<RegExp, List<ChordsheetElement> Function(Match)> chordSheetExpressions = {
   RegExp(r'\\transpose\{([+-]?\d+)\}'): ChordsheetTranspose.parseTex,
   RegExp(r'\\meter\{\\beatcount\}\{\\beatunit\}'): (p0) => [],
   RegExp(r'\\capo\{(.*?)\}'): (p0) => [],
+  RegExp(r"\\prefer\w*"): (p0) => [],
   RegExp(r"[\n\s]*"): (p0) => []
 };
 
@@ -121,6 +232,11 @@ Chordsheet parseTexChordsheet(RegExpMatch match) {
   String content = match.group(3) ?? "";
   content = cleanTex(content);
   sheet.elements = Scanner(content, chordSheetExpressions).list;
+  Rhythm rhythm = Rhythm(
+      bpm: sheet.attributes["bpm"],
+      upper: sheet.attributes["beatcount"],
+      lower: sheet.attributes["beatunit"]);
+  sheet.initialState = sheet.initialState! + rhythm;
   return sheet;
 }
 

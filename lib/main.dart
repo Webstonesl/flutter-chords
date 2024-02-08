@@ -13,6 +13,9 @@ Future<void> main() async {
   }
 
   databaseFactory = databaseFactoryFfi;
-  print(await MyDatabase.getDatabase(path: "./chordsheets.sqlite3"));
+  print(await MyDatabase.getDatabase(path: "chordsheets.sqlite3"));
+  if (Platform.isLinux || Platform.isMacOS || Platform.isWindows) {
+    print(Directory.current);
+  }
   runApp(const MyApp());
 }

@@ -105,6 +105,10 @@ class Rhythm extends MusicalElement {
   getData() {
     return {'bpm': bpm, 'upper': upper, 'lower': lower};
   }
+
+  static Rhythm fromMap(Map<String, dynamic> data) {
+    return Rhythm(bpm: data["bpm"], upper: data["upper"], lower: data["lower"]);
+  }
 }
 
 enum ChordType { major, minor, dim, sus, add2, add4 }
@@ -195,6 +199,10 @@ class Scale extends MusicalElement {
   getData() {
     return {'key': key.getData(), 'type': type.index};
   }
+
+  static Scale fromMap(data) {
+    return Scale(key: Key(data["key"]), type: ScaleType.values[data["type"]]);
+  }
 }
 
 enum RepeatType { start, end, number }
@@ -272,6 +280,8 @@ class State {
           scale: element,
           rhythm: rhythm,
           transpose: transpose);
+    } else if (element is Rhythm) {
+      return State(repeats: repeats.toList(), scale: scale, rhythm: element);
     }
     throw UnimplementedError("Not yet implemented");
   }
@@ -281,4 +291,12 @@ class State {
         'rhythm': rhythm.getData(),
         'transpose': transpose.getData(),
       };
+
+  static State? fromMap(Map<String, dynamic> data) {
+    return State(
+        repeats: [],
+        scale: Scale.fromMap(data["scale"]),
+        rhythm: Rhythm.fromMap(data["rhythm"]),
+        transpose: Transpose(data["transpose"]));
+  }
 }

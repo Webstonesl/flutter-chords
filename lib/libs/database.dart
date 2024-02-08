@@ -1,7 +1,10 @@
 import 'dart:convert';
+import 'dart:ffi';
 import 'dart:io';
 
 import 'package:song_viewer/libs/songstructure/chordsheets/chordsheet.dart';
+import 'package:song_viewer/libs/songstructure/chordsheets/elements.dart';
+import 'package:song_viewer/libs/songstructure/musictheory.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 import 'package:uuid/uuid.dart';
 
@@ -20,19 +23,34 @@ abstract class Model {
     if (UUIDS.contains(uuid)) {
       throw Exception("Duplicate UUIDS");
     }
+    _uuid = uuid;
   }
 
   Map<String, dynamic> get data {
     Map<String, dynamic> d = getData();
-    d["datatype"] = runtimeType.toString();
-    d["uuid"] = uuid;
-    return d;
+
+    return {
+      "datatype": runtimeType.toString(),
+      "data": getData(),
+    };
   }
 
   Map<dynamic, dynamic>? oldData;
   Map<String, dynamic> getData();
   Future<void> _save(MyDatabase database, Map<dynamic, dynamic> newData) async {
-    print(jsonEncode(newData));
+    if (!saved) {
+      await database.db
+          .insert("items", {"uuid": uuid, "data": json.encode(newData)});
+      saved = true;
+    } else {
+      if (oldData != newData) {
+        print(uuid);
+        print(runtimeType.toString());
+        print(await database.db.update("items", {"data": json.encode(newData)},
+            where: "uuid = ?", whereArgs: [uuid]));
+        oldData = newData;
+      }
+    }
   }
 
   Future<dynamic> _screen(dynamic item, MyDatabase database) async {
@@ -71,11 +89,17 @@ abstract class Model {
     int t = 0, n = 0;
     dt = await _screen(dt, database);
     await _save(database, dt);
+    database._cache[uuid] = this;
     while (t < n) {
       print("$t < $n");
       sleep(const Duration(milliseconds: 200));
     }
     return {'type': 'model', 'subtype': runtimeType.toString(), 'uuid': uuid};
+  }
+
+  Future<void> delete(MyDatabase myDatabase) async {
+    await myDatabase.db
+        .rawDelete("DELETE FROM \"items\" WHERE uuid = ?", [uuid]);
   }
 }
 
@@ -84,19 +108,114 @@ class MyDatabase {
   late Database db;
   MyDatabase();
 
-  final Map<Uuid, Model> _map = <Uuid, Model>{};
-  Future<Model?> getModel(Uuid uuid) async {
-    List<Map<String, dynamic>> l = await db
-        .query("items", where: "uuid = ?", whereArgs: [uuid.toString()]);
-    for (Map<String, dynamic> entry in l) {
-      print(entry["datatype"]);
-      for (String key in entry.keys) {}
+  final Map<String, dynamic> _cacheMap = <String, Map<String, dynamic>>{};
+  final Map<String, Model> _cache = <String, Model>{};
+  Future<Map<String, dynamic>?> _getMap(String uuid) async {
+    List<Map<String, dynamic>> item =
+        await db.query("items", where: "uuid = ?", whereArgs: [uuid]);
+    if (item.isEmpty) {
+      return null;
     }
-    return null;
+    return json.decode(item.first["data"]);
+  }
+
+  Future<Chordsheet?> _chordsheet(String uuid, Map<String, dynamic> map) async {
+    Chordsheet cs = Chordsheet(attributes: {});
+    cs.uuid = uuid;
+    cs.title = map.remove("title");
+    cs.attributes = map.remove("attrs");
+    cs.elements = [
+      for (Map<String, dynamic> element in map.remove("elements"))
+        if (element["type"] == "model")
+          (await getModel(element["uuid"])) as ChordsheetElement
+    ];
+    cs.initialState = State.fromMap(map.remove("start"));
+
+    return cs;
+  }
+
+  Future<ChordsheetPart?> _chordsheetpart(
+      String uuid, Map<String, dynamic> data) async {
+    ChordsheetPart part = ChordsheetPart();
+    part._uuid = uuid;
+    part.title = data.remove('title');
+    part.elements = [
+      for (Map<String, dynamic> element in data["elements"])
+        ItemElement.getItemElement(element)
+    ];
+
+    return part;
+  }
+
+  Future<ChordsheetRepeat> _chordsheetrepeat(
+      String uuid, Map<String, dynamic> data) async {
+    ChordsheetRepeat repeat = ChordsheetRepeat();
+    repeat.s = data["title"];
+    repeat.n = data["n"];
+    repeat.part = (data["part"] is Map<String, dynamic>)
+        ? await getModel(data["part"]["uuid"]) as ChordsheetPart
+        : null;
+    return repeat;
+  }
+
+  Future<Model?> getModel(String uuid) async {
+    // if (_cache[uuid] != null) {
+    //   return _cache[uuid]!;
+    // }
+    Map<String, dynamic>? data = //_cacheMap[uuid] ??
+        await _getMap(uuid);
+    // if (data == null) {
+    //   return null;
+    // }
+    Model? result;
+    // print(data);
+    if (data == null) {
+      throw Exception("Data is null for $uuid");
+    }
+    switch (data!["datatype"]) {
+      case "Chordsheet":
+        result = await _chordsheet(uuid, data["data"]);
+        break;
+      case "ChordsheetPart":
+        result = await _chordsheetpart(uuid, data["data"]);
+        break;
+      case "ChordsheetTranspose":
+        result = ChordsheetTranspose(data["data"]["transpose"]);
+        break;
+      case "ChordsheetRepeat":
+        result = await _chordsheetrepeat(uuid, data["data"]);
+
+      default:
+        throw UnsupportedError('${data["datatype"]}\n${data}');
+    }
+
+    if (result != null) {
+      result.uuid = uuid;
+
+      result.saved = true;
+      _cache[uuid] ??= result;
+    }
+
+    return result;
   }
 
   Future<List<Chordsheet>> getChordsheets() async {
-    return [];
+    List<Map<String, dynamic>> data = await db.query("items");
+
+    List<String> cs = [];
+    for (Map<String, dynamic> item in data) {
+      Map<String, dynamic> itemData = json.decode(item["data"]);
+      _cacheMap.putIfAbsent(item["uuid"], () => itemData);
+
+      if (itemData["datatype"] == "Chordsheet") {
+        cs.add(item["uuid"]);
+      }
+    }
+    List<Chordsheet> results = [
+      for (String uuid in cs) (await getModel(uuid)) as Chordsheet
+    ];
+
+    return results;
   }
 
   static Future<MyDatabase> getDatabase({required String path}) async {

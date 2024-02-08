@@ -1,5 +1,11 @@
+import 'dart:io';
+import 'dart:typed_data';
+
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:pdf/pdf.dart';
 import 'package:song_viewer/gui/widgets/stateeditor.dart';
+import 'package:song_viewer/libs/database.dart';
 import 'package:song_viewer/libs/songstructure/chordsheets/chordsheet.dart';
 import 'package:song_viewer/libs/songstructure/chordsheets/elements.dart';
 import 'package:song_viewer/libs/songstructure/musictheory.dart' as mtheory;
@@ -16,7 +22,7 @@ class ChordsheetViewer extends StatefulWidget {
 
 class _ChordsheetViewerState extends State<ChordsheetViewer> {
   int n = 0;
-
+  bool showShare = false;
   @override
   Widget build(BuildContext context) {
     widget.chordsheet.reset();
@@ -28,63 +34,60 @@ class _ChordsheetViewerState extends State<ChordsheetViewer> {
           IconButton(
               onPressed: () {
                 showDialog(
-                    builder: (context) => Dialog(
-                        child: StateEditorWidget(
-                            state: widget.chordsheet.initialState!)),
-                    context: context);
+                        builder: (context) => Dialog(
+                            child: StateEditorWidget(
+                                state: widget.chordsheet.initialState!)),
+                        context: context)
+                    .then((value) {
+                  setState(() {
+                    widget.chordsheet.initialState = value;
+                  });
+                });
                 // Dialog(child:StateEditorWidget(state: widget.chordsheet.initialState!));
               },
               icon: const Icon(Icons.music_note)),
           IconButton(
               onPressed: () {
-                setState(() {
-                  showDialog<mtheory.State>(
+                showModalBottomSheet(
                     context: context,
-                    builder: (context) {
-                      return Dialog(
-                          child: Column(
-                        children: [
-                          const Text("Transpose"),
-                          Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                  onPressed: () {
-                                    setState(() {
-                                      widget.chordsheet.initialState =
-                                          widget.chordsheet.initialState! +
-                                              const mtheory.Transpose(-1);
-                                    });
-                                  },
-                                  icon: const Text("-")),
-                              Container(
-                                child: Text(widget
-                                    .chordsheet.initialState!.scale
-                                    .toString()),
-                              ),
-                              IconButton(
-                                  onPressed: () {
-                                    widget.chordsheet.initialState =
-                                        widget.chordsheet.initialState! +
-                                            const mtheory.Transpose(-1);
-                                  },
-                                  icon: const Text("+"))
-                            ],
+                    builder: (context) =>
+                        Column(mainAxisSize: MainAxisSize.min, children: [
+                          ListTile(
+                            title: Text("As PDF"),
+                            onTap: () async {
+                              Uint8List document =
+                                  await widget.chordsheet.toPDF();
+                              if (Platform.isLinux ||
+                                  Platform.isMacOS ||
+                                  Platform.isWindows) {
+                                FilePicker.platform
+                                    .saveFile(
+                                  fileName: "Chordsheet.pdf",
+                                )
+                                    .then((filepath) {
+                                  if (filepath == null) {
+                                    return;
+                                  }
+                                  {
+                                    File(filepath).writeAsBytes(document);
+
+                                    ;
+                                  }
+                                });
+                              }
+
+                              Navigator.pop(context);
+                            },
+                          ),
+                          ListTile(
+                            title: Text("As My File Type"),
+                            onTap: () {
+                              Navigator.pop(context);
+                            },
                           )
-                        ],
-                      ));
-                    },
-                  ).then((value) {
-                    print(value);
-                    if (value != null) {
-                      setState(() {
-                        widget.chordsheet.initialState = value;
-                      });
-                    }
-                  });
-                });
+                        ]));
               },
-              icon: const Icon(Icons.import_export))
+              icon: Icon(Icons.share))
         ],
       ),
       body: SingleChildScrollView(
@@ -177,25 +180,44 @@ class _ChordsheetViewerState extends State<ChordsheetViewer> {
 
         old = element;
       }
-      rows.add(Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
+      rows.add(Wrap(
+        alignment: WrapAlignment.start,
+        crossAxisAlignment: WrapCrossAlignment.end,
         children: lineRow,
       ));
     }
-    return Container(
-        padding: const EdgeInsets.only(top: 10),
-        child: Column(
-          children: rows,
-        ));
+    return Row(children: [
+      Expanded(
+          child: Container(
+              padding: const EdgeInsets.only(top: 10),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: rows,
+              )))
+    ]);
   }
 
   Widget buildElement(BuildContext context, ChordsheetElement element) {
+    mtheory.State? state = widget.chordsheet.state;
+    widget.chordsheet.state = element.applyTo(state!);
     n++;
     if (element is ChordsheetTranspose) {
       return Container(
           child: ListTile(
-              leading: Text("$n."),
-              title: Text("Transpose ${element.transpose.n}")));
+        leading: Text("$n."),
+        title: Text(
+            "Transpose ${element.transpose.n}: ${state.scale.toString()} -> ${widget.chordsheet.state!.scale}"),
+        trailing: IconButton(
+          icon: const Icon(Icons.delete),
+          onPressed: () async {
+            setState(() {
+              widget.chordsheet.elements.remove(element);
+            });
+            widget.chordsheet.save(await MyDatabase.getDatabase(path: ""));
+          },
+        ),
+        onTap: () {},
+      ));
     }
     if (element is ChordsheetRepeat) {
       if (element.part == null) {
@@ -229,7 +251,7 @@ class _ChordsheetViewerState extends State<ChordsheetViewer> {
       );
     }
     if (element is ChordsheetPart) {
-      return Container(
+      Widget c = Container(
         child: ListTile(
           title: Text(element.title ?? "Unlabeled Part"),
           subtitle: buildChordSheetsPart(context, element),
@@ -240,6 +262,8 @@ class _ChordsheetViewerState extends State<ChordsheetViewer> {
               .merge(const TextStyle(fontWeight: FontWeight.bold)),
         ),
       );
+      return c;
+      // widget.chordsheet.currentState =
     }
     return ListTile(
         leading: Text("$n."), title: Text(element.runtimeType.toString()));

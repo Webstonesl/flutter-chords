@@ -19,6 +19,7 @@ class _ChordsheetListViewState extends State<ChordsheetListView> {
   MyDatabase? _database;
   late Future<MyDatabase> database;
   late Future<List<Chordsheet>> chordsheets;
+
   // List<Chordsheet> chordsheets = <Chordsheet>[];
   @override
   void initState() {
@@ -47,19 +48,13 @@ class _ChordsheetListViewState extends State<ChordsheetListView> {
         key: const ValueKey("CSList"),
         appBar: AppBar(
           leading: const Row(children: []),
-          title: search == null
-              ? const Text("Chordsheets")
-              : TextField(
-                  decoration: const InputDecoration(
-                      icon: Icon(Icons.search), labelText: "Search"),
-                  focusNode: primaryFocus,
-                ),
+          title: const Text("Chordsheets"),
           actions: [
             if (search == null)
               IconButton(
                   onPressed: () {
                     setState(() {
-                      search = "";
+                      chordsheets = _database!.getChordsheets();
                     });
                   },
                   icon: const Icon(Icons.search)),
@@ -76,12 +71,14 @@ class _ChordsheetListViewState extends State<ChordsheetListView> {
                     if (value.files[0].extension!.toLowerCase() == 'tex') {
                       List<Chordsheet> sheets = parseTexChordsheets(
                           const Utf8Decoder().convert(value.files[0].bytes!));
-                      for (Chordsheet sheet in sheets) {
-                        print(sheet.save(_database!));
-                      }
-                      // setState(() {
-                      //   _database!.insert(sheets);
-                      // });
+                      Future.forEach(
+                              sheets, (element) => element.save(_database!))
+                          .then((value) {
+                        setState(() {
+                          chordsheets = _database!.getChordsheets();
+                        });
+                      });
+
                       if (sheets.length == 1) {
                         Navigator.push(
                             context,
@@ -99,31 +96,87 @@ class _ChordsheetListViewState extends State<ChordsheetListView> {
         body: FutureBuilder(
           future: database,
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return Text(snapshot.error.toString());
+            }
             if (!snapshot.hasData) {
               return const CircularProgressIndicator();
             }
             return FutureBuilder(
                 future: chordsheets,
                 builder: (context, snapshot) {
+                  print(snapshot);
+                  if (snapshot.hasError) {
+                    return Text(snapshot.error.toString());
+                  }
                   if (!snapshot.hasData) {
                     return const CircularProgressIndicator();
                   }
-                  return SingleChildScrollView(
-                      child: Column(
-                    children: [
-                      for (Chordsheet cs in snapshot.data!)
-                        ListTile(
-                          title: Text(cs.title),
-                          onTap: () {
-                            Navigator.push(
-                                context,
-                                MaterialPageRoute(
-                                    builder: (context) =>
-                                        ChordsheetViewer(chordsheet: cs)));
-                          },
-                        )
-                    ],
-                  ));
+                  return Column(children: [
+                    SearchBar(
+                      leading: Icon(Icons.search),
+                      onChanged: (value) async {},
+                    ),
+                    SingleChildScrollView(
+                        child: Column(
+                      children: [
+                        for (Chordsheet cs in snapshot.data!)
+                          ListTile(
+                            title: Text(cs.title),
+                            subtitle: Text([
+                              if (cs.attributes["by"] != null)
+                                cs.attributes["by"],
+                              if (cs.initialState != null)
+                                cs.initialState!.scale.toString(),
+                              if (cs.attributes["bpm"] != null)
+                                cs.attributes["bpm"]
+                            ].join(" | ")),
+                            trailing: IconButton(
+                                onPressed: () {
+                                  AlertDialog dialog = AlertDialog(
+                                    icon: const Icon(Icons.delete),
+                                    title: Text("Delete \"${cs.title}\"?"),
+                                    content: Text(
+                                        "Are you sure you want to delete \"${cs.title}\"?"),
+                                    actions: [
+                                      TextButton(
+                                          onPressed: () {
+                                            Navigator.pop(context);
+                                          },
+                                          child: const Text("Cancel")),
+                                      ElevatedButton(
+                                          onPressed: () {
+                                            cs.delete(_database!).then(
+                                              (value) {
+                                                setState(() {
+                                                  chordsheets = _database!
+                                                      .getChordsheets();
+                                                });
+                                              },
+                                            );
+
+                                            Navigator.pop(context);
+                                          },
+                                          child: const Text("Delete"))
+                                    ],
+                                  );
+                                  showDialog(
+                                    context: context,
+                                    builder: (context) => dialog,
+                                  );
+                                },
+                                icon: const Icon(Icons.delete)),
+                            onTap: () {
+                              Navigator.push(
+                                  context,
+                                  MaterialPageRoute(
+                                      builder: (context) =>
+                                          ChordsheetViewer(chordsheet: cs)));
+                            },
+                          )
+                      ],
+                    ))
+                  ]);
                 });
           },
         ));

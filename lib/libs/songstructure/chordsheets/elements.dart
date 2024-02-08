@@ -8,10 +8,28 @@ abstract class ItemElement {
   dynamic getData();
   Map<String, dynamic> get data =>
       {'itemtype': runtimeType.toString(), 'data': getData()};
+  static ItemElement getItemElement(Map<String, dynamic> map) {
+    dynamic data = map["data"];
+    switch (map["itemtype"]) {
+      case "ItemLyric":
+        return ItemLyric(data);
+      case "ItemChord":
+        return ItemChord(data["text"],
+            key: data["chord"]["key"],
+            bass: data["chord"]["bass"],
+            mod: data["chord"]["mod"]);
+      case "ItemLineBreak":
+        return ItemLineBreak();
+      case "ItemMeasure":
+        return ItemMeasure();
+    }
+
+    return ItemLineBreak();
+  }
 }
 
 class ItemChord extends ItemElement {
-  String input;
+  String? input;
 
   Chord? chord;
   static Map<RegExp, List<int>> modKeys = {
@@ -23,6 +41,8 @@ class ItemChord extends ItemElement {
     RegExp(r"sus(?=\d+)"): [-4, -3],
     RegExp("2"): [2],
     RegExp("4"): [5],
+    RegExp("5"): [-4],
+    RegExp("6"): [9],
     RegExp("9"): [2],
     RegExp(r"add(?=\d+)"): [],
     RegExp("11"): [5],
@@ -31,14 +51,29 @@ class ItemChord extends ItemElement {
 
     // "sus2": []
   };
-  ItemChord(this.input, [ChordsheetPart? part]) {
-    RegExp exp = RegExp(r"\s*([A-G][#&b]*)\s*([^/\]]*)\s*(?:\/([A-G][#&b]))?");
-    Match? c = exp.matchAsPrefix(input);
-    if (c == null) {
-      return;
-    }
+  ItemChord(this.input,
+      {ChordsheetPart? part, int? key, int? bass, String? mod}) {
     Set<int> keys = {0, 4, 7};
-    String mod = c.group(2)!;
+    Key k;
+    Key? b;
+    if (key == null) {
+      RegExp exp =
+          RegExp(r"\s*([A-G][#&b]*)\s*([^/\]]*)\s*(?:\/([A-G][#&b]))?");
+      Match? c = exp.matchAsPrefix(input!);
+      if (c == null) {
+        return;
+      }
+
+      mod = c.group(2)!;
+      k = Key.getKeyFromStringTex(c.group(1)!)!;
+      b = (c.group(3) != null) ? Key.getKeyFromStringTex(c.group(3)!) : null;
+    } else {
+      k = Key(key);
+      b = bass == null ? null : Key(bass);
+      if (mod == null) {
+        throw Exception("Mod cannot be null");
+      }
+    }
     for (int i = 0; i < mod.length;) {
       int oi = i;
       for (RegExp key in modKeys.keys) {
@@ -59,19 +94,18 @@ class ItemChord extends ItemElement {
       }
     }
 
-    Key k = Key.getKeyFromStringTex(c.group(1)!)!;
     Set<Key> ks = {};
-    for (int key in keys) {
-      ks.add(Key((key + k.value) % 12));
+    for (int keyv in keys) {
+      ks.add(Key((keyv + k.value) % 12));
     }
-    Key? b = (c.group(3) != null) ? Key.getKeyFromStringTex(c.group(3)!) : null;
-    chord = Chord(key: k, bass: b, mod: c.group(2)!, keys: ks, types: {});
+
+    chord = Chord(key: k, bass: b, mod: mod!, keys: ks, types: {});
   }
 
   @override
   String render(State s) {
     if (chord == null) {
-      return input;
+      return input!;
     }
     return (chord! + s.transpose).render(s);
   }
@@ -101,8 +135,11 @@ class ItemMeasure extends ItemElement {
 
   @override
   getData() {
-    // TODO: implement toJSON
-    throw UnimplementedError();
+    if (rhythm != null) {
+      return rhythm!.getData();
+    } else {
+      return null;
+    }
   }
 }
 
@@ -142,7 +179,7 @@ class ItemRepeat extends ItemElement {
 
   @override
   getData() {
-    throw UnimplementedError();
+    return {"repeat": type.index, "number": n};
   }
 }
 
@@ -166,7 +203,7 @@ class ChordsheetPart extends ChordsheetElement {
       RegExp(r'\n|(?:\\\\)'): (match) => [ItemLineBreak()],
       RegExp(r'[^\{\}|\\\n]+'): (match) => [ItemLyric(match.group(0)!)],
       RegExp(r'\|'): (match) => [ItemMeasure()],
-      RegExp(r'\\\[(.*?)\]'): (match) => [ItemChord(match.group(1)!, part)],
+      RegExp(r'\\\[(.*?)\]'): (match) => [ItemChord(match.group(1)!)],
       RegExp(r"\\(\s)"): (match) => [ItemLyric(match.group(1)!)],
       RegExp(r"\\halfspace"): (match) => [ItemLineBreak()],
       RegExp(r"\\(l|r)rep"): (match) => [ItemRepeat(match.group(1)!)],
@@ -191,8 +228,7 @@ class ChordsheetPart extends ChordsheetElement {
 
   @override
   State applyTo(State s) {
-    // TODO: implement applyTo
-    throw UnimplementedError();
+    return s;
   }
 
   @override
@@ -201,12 +237,6 @@ class ChordsheetPart extends ChordsheetElement {
       'title': title,
       'elements': [for (ItemElement element in elements) element.data]
     };
-  }
-
-  @override
-  String getTableName() {
-    // TODO: implement getTableName
-    throw UnimplementedError();
   }
 }
 
@@ -220,10 +250,10 @@ class ChordsheetRepeat extends ChordsheetElement {
   int? n;
   ChordsheetPart? part;
   String s = '';
-
+  String? get title => (part == null) ? s : part!.title;
   @override
   State applyTo(State s) {
-    throw UnimplementedError();
+    return s;
   }
 
   @override
@@ -233,11 +263,6 @@ class ChordsheetRepeat extends ChordsheetElement {
       'n': n,
       'part': part,
     };
-  }
-
-  @override
-  String getTableName() {
-    throw UnimplementedError();
   }
 }
 
@@ -257,10 +282,5 @@ class ChordsheetTranspose extends ChordsheetElement {
   @override
   Map<String, dynamic> getData() {
     return {'transpose': transpose.getData()};
-  }
-
-  @override
-  String getTableName() {
-    throw UnimplementedError();
   }
 }

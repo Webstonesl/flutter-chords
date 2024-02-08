@@ -1,3 +1,4 @@
 {
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "cmake.sourceDirectory": "/Users/webstones/Code/flutter-chords/linux"
 }

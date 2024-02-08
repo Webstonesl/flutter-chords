@@ -103,7 +103,7 @@ class _StateEditorState extends State<StateEditorWidget> {
                           .toString())
               ],
               onSelected: (value) {
-                if (value != null) {
+                if (value == null) {
                   return;
                 }
                 setState(() {
