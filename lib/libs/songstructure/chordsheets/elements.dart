@@ -22,6 +22,10 @@ abstract class ItemElement {
         return ItemLineBreak();
       case "ItemMeasure":
         return ItemMeasure();
+      case "ItemRepeat":
+        return ItemRepeat(data["repeat"] < 2
+            ? (['l', 'r'][data["repeat"]])
+            : (data["number"] ?? 2).toString());
     }
 
     return ItemLineBreak();

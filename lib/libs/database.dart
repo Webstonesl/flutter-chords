@@ -11,6 +11,8 @@ import 'package:uuid/uuid.dart';
 abstract class Model {
   static Uuid UUID = const Uuid();
   static Set<String> UUIDS = {};
+  DateTime? lastAccess;
+
   bool saved = false;
   String? _uuid;
   String get uuid {

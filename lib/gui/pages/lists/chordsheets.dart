@@ -105,7 +105,6 @@ class _ChordsheetListViewState extends State<ChordsheetListView> {
             return FutureBuilder(
                 future: chordsheets,
                 builder: (context, snapshot) {
-                  print(snapshot);
                   if (snapshot.hasError) {
                     return Text(snapshot.error.toString());
                   }
@@ -119,6 +118,7 @@ class _ChordsheetListViewState extends State<ChordsheetListView> {
                     ),
                     SingleChildScrollView(
                         child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         for (Chordsheet cs in snapshot.data!)
                           ListTile(
