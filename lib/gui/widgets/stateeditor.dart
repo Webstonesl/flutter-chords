@@ -13,7 +13,9 @@ class StateEditorWidget extends StatefulWidget {
 
 class _StateEditorState extends State<StateEditorWidget> {
   theory.State? _state;
-
+  int? bpm;
+  int? upper;
+  int? lower;
   @override
   Widget build(BuildContext context) {
     _state ??= widget.state;
@@ -67,12 +69,20 @@ class _StateEditorState extends State<StateEditorWidget> {
                           textAlign: TextAlign.center,
                           keyboardType: TextInputType.number,
                           initialValue: (_state!.rhythm.upper ?? 4).toString(),
+                          onChanged: (value) {
+                            int? n = int.tryParse(value);
+                            upper = n;
+                          },
                         )),
                         Expanded(
                             child: TextFormField(
                           textAlign: TextAlign.center,
                           keyboardType: TextInputType.number,
-                          initialValue: (_state!.rhythm.upper ?? 4).toString(),
+                          initialValue: (_state!.rhythm.lower ?? 4).toString(),
+                          onChanged: (value) {
+                            int? n = int.tryParse(value);
+                            lower = n;
+                          },
                         ))
                       ],
                     ))
@@ -83,6 +93,11 @@ class _StateEditorState extends State<StateEditorWidget> {
               height: 50,
               child: TextFormField(
                 keyboardType: TextInputType.number,
+                initialValue: (_state!.rhythm.bpm ?? 0).toString(),
+                onChanged: (value) {
+                  int? n = int.tryParse(value);
+                  bpm = n;
+                },
               ),
             )
           ],
@@ -115,6 +130,8 @@ class _StateEditorState extends State<StateEditorWidget> {
         ),
         ElevatedButton(
             onPressed: () {
+              _state =
+                  _state! + theory.Rhythm(bpm: bpm, upper: upper, lower: lower);
               Navigator.pop(context, _state!);
             },
             child: const Text("OK"))

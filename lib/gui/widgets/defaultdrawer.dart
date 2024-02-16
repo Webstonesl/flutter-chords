@@ -28,22 +28,22 @@ class DefaultDrawerState_ extends State<DefaultDrawer> {
           child: Column(children: [
             ListTile(
               leading: const Icon(Icons.music_note),
-              title: const Text("Songs"),
+              title: const Text("Chordsheets"),
               onTap: () {
                 while (Navigator.canPop(context)) {
                   Navigator.pop(context);
                 }
-                Navigator.pushNamed(context, '/songs');
+                Navigator.pushReplacementNamed(context, '/chordsheets');
               },
             ),
             ListTile(
               leading: const Icon(Icons.file_copy),
-              title: const Text("Files"),
+              title: const Text("Sets"),
               onTap: () {
                 while (Navigator.canPop(context)) {
                   Navigator.pop(context);
                 }
-                Navigator.pushNamed(context, '/files');
+                Navigator.pushReplacementNamed(context, '/setlists');
               },
             ),
           ]),

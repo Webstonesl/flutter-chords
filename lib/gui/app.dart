@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:song_viewer/gui/pages/lists/chordsheets.dart';
+import 'package:song_viewer/gui/pages/lists/sets.dart';
 
 import 'mainpage.dart';
 
@@ -21,8 +22,9 @@ class MyApp extends StatelessWidget {
       ),
       initialRoute: '/chordsheets',
       routes: {
-        '/': (context) => const MyHomePage(title: 'Song Viewer'),
+        // '/': (context) => const MyHomePage(title: 'Song Viewer'),
         '/chordsheets': (context) => const ChordsheetListView(),
+        '/setlists': (context) => const SetLists()
       },
     );
   }

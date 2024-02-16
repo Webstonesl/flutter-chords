@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:ffi';
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:song_viewer/libs/songstructure/chordsheets/chordsheet.dart';
 import 'package:song_viewer/libs/songstructure/chordsheets/elements.dart';
 import 'package:song_viewer/libs/songstructure/musictheory.dart';
@@ -37,21 +38,19 @@ abstract class Model {
     };
   }
 
-  Map<dynamic, dynamic>? oldData;
+  Map<String, dynamic>? oldData;
   Map<String, dynamic> getData();
+
   Future<void> _save(MyDatabase database, Map<dynamic, dynamic> newData) async {
     if (!saved) {
       await database.db
           .insert("items", {"uuid": uuid, "data": json.encode(newData)});
       saved = true;
     } else {
-      if (oldData != newData) {
-        print(uuid);
-        print(runtimeType.toString());
-        print(await database.db.update("items", {"data": json.encode(newData)},
-            where: "uuid = ?", whereArgs: [uuid]));
-        oldData = newData;
-      }
+      print(uuid);
+      print(runtimeType.toString());
+      print(await database.db.update("items", {"data": json.encode(newData)},
+          where: "uuid = ?", whereArgs: [uuid]));
     }
   }
 
@@ -87,21 +86,97 @@ abstract class Model {
 
   Future<Map<String, String>> save(MyDatabase database) async {
     Map<dynamic, dynamic> dt = data;
+    oldData = data;
     // Filter data
     int t = 0, n = 0;
+
     dt = await _screen(dt, database);
     await _save(database, dt);
     database._cache[uuid] = this;
     while (t < n) {
-      print("$t < $n");
       sleep(const Duration(milliseconds: 200));
     }
+
     return {'type': 'model', 'subtype': runtimeType.toString(), 'uuid': uuid};
   }
 
   Future<void> delete(MyDatabase myDatabase) async {
     await myDatabase.db
         .rawDelete("DELETE FROM \"items\" WHERE uuid = ?", [uuid]);
+  }
+
+  bool get needsUpdate => _needsUpdate();
+
+  static bool _equalsMap(Map<dynamic, dynamic> a1, Map<dynamic, dynamic> a2) {
+    if (a1.keys.length != a2.keys.length) {
+      return false;
+    }
+    for (dynamic k1 in a1.keys) {
+      if (!a2.containsKey(k1)) {
+        return false;
+      }
+      if (!_equals(a1[k1], a2[k1])) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  static bool _equalsList(List<dynamic> a1, List<dynamic> a2) {
+    if (a1.length != a2.length) {
+      return false;
+    }
+    for (int i = 0; i < a1.length; i++) {
+      if (!_equals(a1[i], a2[i])) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  static bool _equals(dynamic a1, dynamic a2) {
+    if (a1 is Map) {
+      if (a2 is! Map) {
+        return false;
+      }
+      return _equalsMap(a1, a2);
+    }
+    if (a1 is List) {
+      if (a2 is! List) {
+        return false;
+      }
+      return _equalsList(a1, a2);
+    }
+    if (a1 is Model) {
+      if (a1.runtimeType != a2.runtimeType) {
+        return false;
+      }
+      if (identical(a1, a2)) {
+        return !a1.needsUpdate;
+      } else {
+        return false;
+      }
+    }
+    if ([String, num, Null, int].contains(a1.runtimeType)) {
+      return a1 == a2;
+    }
+
+    throw Exception(
+        "Comparison error ${a1.runtimeType.toString()}, ${a2.runtimeType.toString()}");
+  }
+
+  bool _needsUpdate() {
+    if (!saved) {
+      return true;
+    }
+    if (oldData == null) {
+      return true;
+    }
+    Map<String, dynamic> od = oldData!["data"], nd = getData();
+
+    return !_equalsMap(od, nd);
   }
 }
 
@@ -195,6 +270,7 @@ class MyDatabase {
       result.uuid = uuid;
 
       result.saved = true;
+      result.oldData = result.data;
       _cache[uuid] ??= result;
     }
 

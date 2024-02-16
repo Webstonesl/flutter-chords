@@ -281,7 +281,13 @@ class State {
           rhythm: rhythm,
           transpose: transpose);
     } else if (element is Rhythm) {
-      return State(repeats: repeats.toList(), scale: scale, rhythm: element);
+      int? bpm = element.bpm ?? rhythm.bpm;
+      int? upper = element.upper ?? rhythm.upper;
+      int? lower = element.lower ?? rhythm.lower;
+      return State(
+          repeats: repeats.toList(),
+          scale: scale,
+          rhythm: Rhythm(bpm: bpm, upper: upper, lower: lower));
     }
     throw UnimplementedError("Not yet implemented");
   }

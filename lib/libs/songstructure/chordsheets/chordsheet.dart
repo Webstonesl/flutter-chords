@@ -208,13 +208,21 @@ class Scanner<T> {
 Map<RegExp, List<ChordsheetElement> Function(Match)> chordSheetExpressions = {
   RegExp(r'\\begin(verse|chorus)\*?[\n\s]*(.*?)[\s\n]*\\end\1', dotAll: true):
       ChordsheetPart.parseTex,
-  RegExp(r'\\repeatpart\{([^\\]*?)(\\rep\{\d+\})?\}'):
+  RegExp(r'\\repeatpart\{([^\\]*?)(\\rep\{\d+\})?\s*(?:\\singer\{.*\}?})?([^\\]*?)\}'):
       ChordsheetRepeat.parseTex,
   RegExp(r'\\transpose\{([+-]?\d+)\}'): ChordsheetTranspose.parseTex,
-  RegExp(r'\\meter\{\\beatcount\}\{\\beatunit\}'): (p0) => [],
+  RegExp(r'\\meter\{\\beatcount\}\{\\beatunit\}'): (p0) =>
+      [ChordsheetRhythmChange()],
+  RegExp(r'\\meter\{(\d+)\}\{(\d+)\}'): (p0) => [
+        ChordsheetRhythmChange(
+            upper: int.parse(p0.group(1)!), lower: int.parse(p0.group(2)!))
+      ],
+  RegExp(r'\\tempo\{(\d+)\}'): (p0) =>
+      [ChordsheetRhythmChange(bpm: int.tryParse(p0.group(1)!))],
   RegExp(r'\\capo\{(.*?)\}'): (p0) => [],
   RegExp(r"\\prefer\w*"): (p0) => [],
-  RegExp(r"[\n\s]*"): (p0) => []
+  RegExp(r'\\musicnote\{.*?\}'): (p0) => [],
+  RegExp(r"[\n\s]*"): (p0) => [],
 };
 
 Chordsheet parseTexChordsheet(RegExpMatch match) {
@@ -237,6 +245,19 @@ Chordsheet parseTexChordsheet(RegExpMatch match) {
       upper: sheet.attributes["beatcount"],
       lower: sheet.attributes["beatunit"]);
   sheet.initialState = sheet.initialState! + rhythm;
+  for (int i = 0; i < sheet.elements.length; i++) {
+    if (sheet.elements[i] is ChordsheetTranspose) {
+      sheet.elements.removeAt(i--);
+      continue;
+    } else if (sheet.elements[i] is ChordsheetRhythmChange) {
+      ChordsheetRhythmChange rc =
+          sheet.elements.removeAt(i--) as ChordsheetRhythmChange;
+      sheet.initialState = sheet.initialState! +
+          Rhythm(bpm: rc.bpm, upper: rc.upper, lower: rc.lower);
+    } else {
+      break;
+    }
+  }
   return sheet;
 }
 

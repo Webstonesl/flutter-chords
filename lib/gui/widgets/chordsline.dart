@@ -275,7 +275,7 @@ class _CSLinePainter extends CustomPainter {
         p.style = PaintingStyle.stroke;
 
         xLyrics = max(xLyrics, xChords);
-        xChords = xLyrics;
+        xChords = xLyrics + 5;
       } else if (element is el.ItemRepeat) {
         if (element.type != mtheory.RepeatType.number) {
           xChords = max(xLyrics, xChords);

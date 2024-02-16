@@ -2,7 +2,19 @@ import 'package:flutter/material.dart';
 
 String cleanTex(String tex) {
   Map<RegExp, String Function(Match)> expressions = {
+    RegExp(r'''(?<!\\)%.*?\n'''): (p0) => "",
     RegExp(r'''\\([`~"'^])([A-Za-z])'''): (p0) {
+      Map<String, int> codes = {
+        '`': 0x0300,
+        '\'': 0x0301,
+        '^': 0x0302,
+        '~': 0x0303,
+        '"': 0x0308
+      };
+      return String.fromCharCodes(
+          [codes[p0.group(1)!]!, for (int c in p0.group(2)!.codeUnits) c]);
+    },
+    RegExp(r'''\\([`~"'^])\{([A-Za-z])\}'''): (p0) {
       Map<String, int> codes = {
         '`': 0x0300,
         '\'': 0x0301,

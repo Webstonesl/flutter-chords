@@ -62,7 +62,7 @@ class ItemChord extends ItemElement {
     Key? b;
     if (key == null) {
       RegExp exp =
-          RegExp(r"\s*([A-G][#&b]*)\s*([^/\]]*)\s*(?:\/([A-G][#&b]))?");
+          RegExp(r"\s*([A-G][#&b]*)\s*([^/\]]*)\s*(?:\/([A-G][#&b]*))?");
       Match? c = exp.matchAsPrefix(input!);
       if (c == null) {
         return;
@@ -286,5 +286,22 @@ class ChordsheetTranspose extends ChordsheetElement {
   @override
   Map<String, dynamic> getData() {
     return {'transpose': transpose.getData()};
+  }
+}
+
+class ChordsheetRhythmChange extends ChordsheetElement {
+  int? bpm;
+  int? upper;
+  int? lower;
+  ChordsheetRhythmChange({this.bpm, this.upper, this.lower});
+
+  @override
+  State applyTo(State s) {
+    return s += Rhythm(bpm: bpm, upper: upper, lower: lower);
+  }
+
+  @override
+  Map<String, dynamic> getData() {
+    return {'bpm': bpm, 'upper': upper, 'lower': lower};
   }
 }

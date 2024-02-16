@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
-import 'package:pdf/pdf.dart';
 import 'package:song_viewer/gui/widgets/chordsline.dart';
 import 'package:song_viewer/gui/widgets/stateeditor.dart';
 import 'package:song_viewer/libs/database.dart';
@@ -13,8 +12,9 @@ import 'package:song_viewer/libs/songstructure/musictheory.dart' as mtheory;
 
 class ChordsheetViewer extends StatefulWidget {
   final Chordsheet chordsheet;
-
-  const ChordsheetViewer({super.key, required this.chordsheet});
+  final MyDatabase database;
+  const ChordsheetViewer(
+      {super.key, required this.chordsheet, required this.database});
   @override
   State<StatefulWidget> createState() {
     return _ChordsheetViewerState();
@@ -30,7 +30,60 @@ class _ChordsheetViewerState extends State<ChordsheetViewer> {
     n = 0;
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.chordsheet.title),
+        leading: IconButton(
+          icon: Icon(Icons.arrow_back),
+          onPressed: () {
+            if (widget.chordsheet.needsUpdate) {
+              showDialog(
+                  context: context,
+                  builder: (context) => AlertDialog(
+                        title: Text("Unsaved Element"),
+                        content: Text("Do you want to save this chordsheet?"),
+                        actions: [
+                          TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop(null);
+                              },
+                              child: const Text("Cancel")),
+                          TextButton(
+                              onPressed: () {
+                                Navigator.of(context).pop(false);
+                              },
+                              child: const Text("Don't Save")),
+                          ElevatedButton(
+                              onPressed: () {
+                                Navigator.of(context).pop(true);
+                              },
+                              child: const Text("Save")),
+                        ],
+                      )).then(
+                (value) {
+                  if (value == null) {
+                    return;
+                  }
+                  if (value == false) {
+                    Navigator.of(context).pop();
+                    return;
+                  }
+                  if (value == true) {
+                    widget.chordsheet.save(widget.database).then((value) {
+                      Navigator.pop(context);
+                    }, onError: (error) {
+                      print(error);
+                      return;
+                    });
+                  }
+                },
+              );
+              return;
+            }
+            Navigator.pop(context);
+          },
+        ),
+        title: Text([
+          widget.chordsheet.title,
+          if (widget.chordsheet.needsUpdate) '*'
+        ].join(' ')),
         actions: [
           IconButton(
               onPressed: () {
@@ -40,9 +93,11 @@ class _ChordsheetViewerState extends State<ChordsheetViewer> {
                                 state: widget.chordsheet.initialState!)),
                         context: context)
                     .then((value) {
-                  setState(() {
-                    widget.chordsheet.initialState = value;
-                  });
+                  if (value is mtheory.State) {
+                    setState(() {
+                      widget.chordsheet.initialState = value;
+                    });
+                  }
                 });
                 // Dialog(child:StateEditorWidget(state: widget.chordsheet.initialState!));
               },
